@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Task Reminder</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+<header>
+    <h1>⏰ Task Reminder</h1>
+    <span class="clock">Today: <span th:text="${#temporals.format(today, 'EEEE, d MMM yyyy')}"></span></span>
+</header>
+
+<main>
+    <div class="flash" th:if="${message}" th:text="${message}"></div>
+
+    <nav class="tabs">
+        <a href="#add" class="tab" data-tab="add">➕ Add task</a>
+        <a href="#today" class="tab" data-tab="today">📅 Today (<span th:text="${todayTasks.size()}"></span>)</a>
+        <a href="#all" class="tab" data-tab="all">📋 All tasks (<span th:text="${tasks.size()}"></span>)</a>
+    </nav>
+
+    <!-- ADD TASK -->
+    <section id="add" class="panel">
+        <h2>Add a task</h2>
+        <form th:action="@{/tasks}" th:object="${task}" method="post">
+            <label>Title
+                <input type="text" th:field="*{title}" placeholder="e.g. Stand-up meeting" required maxlength="200">
+                <small class="error" th:if="${#fields.hasErrors('title')}" th:errors="*{title}"></small>
+            </label>
+            <label>Details (optional)
+                <textarea th:field="*{description}" rows="2" maxlength="1000"
+                          placeholder="Shown in the notification"></textarea>
+            </label>
+            <div class="row">
+                <label>Time
+                    <input type="time" th:field="*{reminderTime}" required>
+                    <small class="error" th:if="${#fields.hasErrors('reminderTime')}" th:errors="*{reminderTime}"></small>
+                </label>
+                <label>Repeat
+                    <select th:field="*{repeatRule}" id="repeatRule">
+                        <option th:each="r : ${repeats}" th:value="${r}" th:text="${r.label}"></option>
+                    </select>
+                </label>
+                <label><span id="dateLabel">Date</span>
+                    <input type="date" th:field="*{taskDate}">
+                </label>
+            </div>
+            <button type="submit">Add task</button>
+        </form>
+    </section>
+
+    <!-- TODAY -->
+    <section id="today" class="panel">
+        <h2>Today's reminders</h2>
+        <p class="empty" th:if="${todayTasks.isEmpty()}">Nothing scheduled for today.</p>
+        <ul class="timeline" th:unless="${todayTasks.isEmpty()}">
+            <li th:each="t : ${todayTasks}"
+                th:classappend="${t.lastNotifiedOn == today} ? 'done' : (${t.reminderTime.isBefore(now)} ? 'missed' : '')">
+                <span class="time" th:text="${#temporals.format(t.reminderTime, 'HH:mm')}"></span>
+                <span class="title" th:text="${t.title}"></span>
+                <span class="status" th:text="${t.lastNotifiedOn == today} ? 'Reminded ✓' : (${t.reminderTime.isBefore(now)} ? 'Passed' : 'Upcoming')"></span>
+            </li>
+        </ul>
+    </section>
+
+    <!-- ALL TASKS -->
+    <section id="all" class="panel">
+        <h2>All tasks</h2>
+        <p class="empty" th:if="${tasks.isEmpty()}">No tasks yet. Add one above.</p>
+        <div class="table-wrap" th:unless="${tasks.isEmpty()}">
+        <table>
+            <thead>
+            <tr><th>Time</th><th>Task</th><th>Repeat</th><th>Date</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+            <tr th:each="t : ${tasks}" th:classappend="${!t.active} ? 'inactive'">
+                <td class="time" th:text="${#temporals.format(t.reminderTime, 'HH:mm')}"></td>
+                <td>
+                    <strong th:text="${t.title}"></strong>
+                    <div class="desc" th:if="${t.description}" th:text="${t.description}"></div>
+                </td>
+                <td th:text="${t.repeatRule.label}"></td>
+                <td th:text="${t.taskDate}"></td>
+                <td th:text="${t.active} ? 'Active' : 'Paused / done'"></td>
+                <td class="actions">
+                    <form th:action="@{/tasks/{id}/test(id=${t.id})}" method="post">
+                        <button class="small" title="Show the notification now">Test</button>
+                    </form>
+                    <form th:action="@{/tasks/{id}/toggle(id=${t.id})}" method="post">
+                        <button class="small secondary" th:text="${t.active} ? 'Pause' : 'Resume'"></button>
+                    </form>
+                    <form th:action="@{/tasks/{id}/delete(id=${t.id})}" method="post"
+                          onsubmit="return confirm('Delete this task?')">
+                        <button class="small danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+        </div>
+    </section>
+</main>
+
+<script>
+    // Tabs: show one panel at a time, remember via URL hash
+    const tabs = document.querySelectorAll('.tab');
+    function show(name) {
+        document.querySelectorAll('.panel').forEach(p => p.hidden = p.id !== name);
+        tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    }
+    tabs.forEach(t => t.addEventListener('click', e => { e.preventDefault(); history.replaceState(null, '', '#' + t.dataset.tab); show(t.dataset.tab); }));
+    show(location.hash.slice(1) || 'add');
+
+    // Date label depends on repeat rule
+    const repeat = document.getElementById('repeatRule');
+    const dateLabel = document.getElementById('dateLabel');
+    function updateLabel() { dateLabel.textContent = repeat.value === 'ONCE' ? 'Date' : 'Starting from'; }
+    repeat.addEventListener('change', updateLabel); updateLabel();
+</script>
+</body>
+</html>
