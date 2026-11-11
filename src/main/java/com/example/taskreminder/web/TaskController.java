@@ -34,7 +34,7 @@ public class TaskController {
             model.addAttribute("task", blank);
         }
         populate(model);
-        return "index";
+        return "tasks";
     }
 
     @PostMapping("/tasks")
@@ -42,7 +42,7 @@ public class TaskController {
                       Model model, RedirectAttributes redirect) {
         if (result.hasErrors()) {
             populate(model);
-            return "index";
+            return "tasks";
         }
         taskService.add(task);
         redirect.addFlashAttribute("message", "Task \"" + task.getTitle() + "\" added for " + task.getReminderTime());
